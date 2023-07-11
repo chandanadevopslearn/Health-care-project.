@@ -1,37 +1,61 @@
 pipeline{
-    environment{
-        AWS_ACCESS_KEY_ID = credentials('AWS_ACCESS_KEY_ID')
-        AWS_SECRET_ACCESS_KEY = credentials('AWS_SECRET_ACCESS_KEY')
-    }
+    
     agent any
     tools{
-        maven 'maven'
+        maven 'mymaven'
+        terraform 'myterraform'
     }
     stages{
-        stage('checkout'){
+        stage('Build maven project'){
             steps{
-                checkout scmGit(branches: [[name: '*/master']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/rishi0803/Health-care.git']])
-            }
-        }
-        stage('Build'){
-            steps{
+               checkout scmGit(branches: [[name: '*/master']], extensions: [], userRemoteConfigs: [[url: 'https://github.com/chandanadevopslearn/Health-care-project..git']])
                 sh 'mvn clean install'
             }
         }
-        stage('test'){
+        stage('Test'){
             steps{
                 sh 'mvn test'
             }
         }
-        stage('Build image'){
+        stage('Build docker image'){
             steps{
                 script{
-                    sh 'docker build -t rishi0803/healthcare-project .'
+                    sh 'docker build -t mchandana123/healthcareproject .'
                 }
             }
         }
-        stage('push docker image'){
+        stage('push the docker image to hub'){
             steps{
+                script{
+                    withCredentials([string(credentialsId: 'dockerhubpwd', variable: 'dockerpwd')]) {
+        sh 'docker login -u mchandana123 -p ${dockerpwd} '
+    
+}
+        sh 'docker push  mchandana123/healthcareproject '
+    }
+                
+            }
+            
+        }
+        stage('terraform init & plan'){
+            steps{
+                script{
+                    sh 'terraform init'
+                    sh 'terraform plan -out tfplan'
+                    sh 'terraform apply --auto-approve tfplan'
+                    
+                }
+            }
+            
+        }
+        
+        stage('Execute Playbook'){
+            steps{
+              ansiblePlaybook credentialsId: 'ansible', disableHostKeyChecking: true, installation: 'myansible', inventory: 'hosts', playbook: 'ansible-playbook.yml'
+            }
+        }
+    }
+}
                 script{
                     withCredentials([string(credentialsId: 'dockerhub-pwd', variable: 'dockerhubpwd')]) {
                     sh 'docker login -u rishi0803 -p ${dockerhubpwd}'    
